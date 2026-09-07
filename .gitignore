@@ -1,0 +1,8 @@
+*.o
+*.iso
+*.bin
+*.bak
+*.BAK
+build/
+iso/
+isodir/
