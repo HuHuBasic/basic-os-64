@@ -292,6 +292,11 @@ void kernel_main(struct multiboot_info *mbi)
     /* Step 8: Process multiboot2 info */
     process_multiboot2(mbi);
 
+    /* Enable timer/keyboard IRQs before the boot animation,
+     * which blocks on PIT ticks via hlt. */
+    outb(0x21, 0xFC);  /* Master: unmask IRQ0 (timer) and IRQ1 (keyboard) */
+    outb(0xA1, 0xFF);  /* Slave: mask all */
+
     /* Step 9: Show boot animation */
     delay(1000000);
     bootscreen_show();

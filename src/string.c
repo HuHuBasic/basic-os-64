@@ -83,12 +83,13 @@ char *itoa(int64_t value, char *str, int base)
         return str;
     }
 
+    uint64_t uval;
     if (value < 0 && base == 10) {
         is_negative = 1;
-        value = -value;
+        uval = (uint64_t)(-(value + 1)) + 1;
+    } else {
+        uval = (uint64_t)value;
     }
-
-    uint64_t uval = (uint64_t)value;
 
     while (uval != 0) {
         int rem = uval % base;

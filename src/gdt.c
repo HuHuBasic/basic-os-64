@@ -3,9 +3,9 @@
 
 /* Number of GDT entries: null, kcode64, kdata, ucode64, udata, kcode32, TSS(low+high) = 8 */
 #define GDT_ENTRIES 8
+#define GDT_TSS_INDEX 6
 
 static gdt_entry_t     gdt[GDT_ENTRIES];
-static gdt_tss_entry_t gdt_tss;
 static tss_t           tss;
 static gdt_descriptor_t gdt_desc;
 
@@ -21,21 +21,21 @@ static void gdt_set_entry(int idx, uint32_t base, uint32_t limit, uint8_t access
 
 static void gdt_set_tss_entry(uint64_t base, uint32_t limit)
 {
-    gdt_tss.limit_low   = (uint16_t)(limit & 0xFFFF);
-    gdt_tss.base_low    = (uint16_t)(base & 0xFFFF);
-    gdt_tss.base_mid    = (uint8_t)((base >> 16) & 0xFF);
-    gdt_tss.access      = 0x89;   /* Present, DPL=0, 64-bit TSS available */
-    gdt_tss.flags_limit = (uint8_t)(((limit >> 16) & 0x0F) | 0x00);
-    gdt_tss.base_high   = (uint8_t)((base >> 24) & 0xFF);
-    gdt_tss.base_upper  = (uint32_t)(base >> 32);
-    gdt_tss.reserved    = 0;
+    gdt_tss_entry_t *gdt_tss = (gdt_tss_entry_t *)&gdt[GDT_TSS_INDEX];
+    gdt_tss->limit_low   = (uint16_t)(limit & 0xFFFF);
+    gdt_tss->base_low    = (uint16_t)(base & 0xFFFF);
+    gdt_tss->base_mid    = (uint8_t)((base >> 16) & 0xFF);
+    gdt_tss->access      = 0x89;   /* Present, DPL=0, 64-bit TSS available */
+    gdt_tss->flags_limit = (uint8_t)(((limit >> 16) & 0x0F) | 0x00);
+    gdt_tss->base_high   = (uint8_t)((base >> 24) & 0xFF);
+    gdt_tss->base_upper  = (uint32_t)(base >> 32);
+    gdt_tss->reserved    = 0;
 }
 
 void gdt_init(void)
 {
     /* Clear GDT */
     memset(gdt, 0, sizeof(gdt));
-    memset(&gdt_tss, 0, sizeof(gdt_tss));
     memset(&tss, 0, sizeof(tss));
 
     /* Entry 0: Null descriptor */
@@ -80,7 +80,7 @@ void gdt_init(void)
     gdt_set_tss_entry((uint64_t)&tss, sizeof(tss_t) - 1);
 
     /* Setup GDT descriptor */
-    gdt_desc.size = (uint16_t)(sizeof(gdt) + sizeof(gdt_tss) - 1);
+    gdt_desc.size = (uint16_t)(sizeof(gdt) - 1);
     gdt_desc.offset = (uint64_t)&gdt;
 
     /* Load GDT */

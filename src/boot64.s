@@ -24,15 +24,6 @@ multiboot_header_start:
     .long MULTIBOOT2_HEADER_LEN
     .long MULTIBOOT2_CHECKSUM
 
-    # Framebuffer tag
-    .align 8
-    .short 5            # type: framebuffer
-    .short 0            # flags
-    .long 20            # size
-    .long 0             # width
-    .long 0             # height
-    .long 0             # depth
-
     # End tag
     .align 8
     .short 0            # type: end
@@ -216,7 +207,7 @@ gdt64_end:
 .align 16
 gdt64_desc:
     .word gdt64_end - gdt64 - 1
-    .quad gdt64
+    .quad gdt64 - HIGHER_HALF
 gdt64_desc_phys = gdt64_desc - HIGHER_HALF
 
 .align 8
