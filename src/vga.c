@@ -2,6 +2,27 @@
 #include "ports.h"
 #include "string.h"
 
+#ifdef SERIAL_DEBUG
+/* COM1 串口镜像，仅用于无头测试构建（-DSERIAL_DEBUG） */
+static void serial_init(void)
+{
+    outb(0x3F8 + 1, 0x00);
+    outb(0x3F8 + 3, 0x80);
+    outb(0x3F8 + 0, 0x03);
+    outb(0x3F8 + 1, 0x00);
+    outb(0x3F8 + 3, 0x03);
+    outb(0x3F8 + 2, 0xC7);
+    outb(0x3F8 + 4, 0x0B);
+}
+
+static void serial_putchar(char c)
+{
+    if (c == '\n') serial_putchar('\r');
+    while ((inb(0x3F8 + 5) & 0x20) == 0) { }
+    outb(0x3F8, (uint8_t)c);
+}
+#endif
+
 static int    cursor_x = 0;
 static int    cursor_y = 0;
 static uint8_t current_color = 0;
@@ -28,6 +49,9 @@ static void vga_update_cursor(void)
 void terminal_init(void)
 {
     current_color = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
+#ifdef SERIAL_DEBUG
+    serial_init();
+#endif
     terminal_clear();
 }
 
@@ -64,6 +88,9 @@ void terminal_scroll(void)
 
 void terminal_putchar(char c)
 {
+#ifdef SERIAL_DEBUG
+    serial_putchar(c);
+#endif
     if (c == '\n') {
         cursor_x = 0;
         cursor_y++;

@@ -9,6 +9,12 @@
 #include "string.h"
 #include "ports.h"
 #include "bootscreen.h"
+#include "heap.h"
+#include "fs.h"
+#include "app.h"
+#include "pkg.h"
+#include "settings.h"
+#include "upgrade.h"
 
 /* Multiboot2 information structures */
 struct multiboot_tag {
@@ -197,6 +203,12 @@ static void handle_command(const char *cmd)
         terminal_print("  time   - Show system uptime (ticks)\n");
         terminal_print("  echo   - Echo text back\n");
         terminal_print("  colors - Show all VGA colors\n");
+        terminal_print("  apps   - List installed .BAK applications\n");
+        terminal_print("  run    - Run an application: run <name>\n");
+        terminal_print("  pkg    - List installed .BAS packages\n");
+        terminal_print("  pkg uninstall <name> - Remove a package\n");
+        terminal_print("  settings [get|set|reset] - Manage system settings\n");
+        terminal_print("  upgrade [apply|rollback] - System update\n");
         terminal_print("  halt   - Halt the CPU\n");
     } else if (strcmp(cmd, "clear") == 0) {
         terminal_clear();
@@ -237,6 +249,63 @@ static void handle_command(const char *cmd)
         for (;;) {
             __asm__ volatile ("hlt");
         }
+    } else if (strcmp(cmd, "apps") == 0) {
+        app_list();
+    } else if (strncmp(cmd, "run ", 4) == 0) {
+        app_run(cmd + 4);
+    } else if (strcmp(cmd, "pkg") == 0) {
+        pkg_list();
+    } else if (strcmp(cmd, "pkg reinstall") == 0) {
+        pkg_ensure_defaults();
+        terminal_print("pkg: system package ready.\n");
+    } else if (strncmp(cmd, "pkg uninstall ", 14) == 0) {
+        pkg_uninstall(cmd + 14);
+    } else if (strcmp(cmd, "settings") == 0) {
+        settings_list_print();
+    } else if (strcmp(cmd, "settings reset") == 0) {
+        settings_reset();
+    } else if (strncmp(cmd, "settings get ", 13) == 0) {
+        char value[128];
+        if (settings_get(cmd + 13, value, sizeof(value)) == 0) {
+            terminal_print(cmd + 13);
+            terminal_print("=");
+            terminal_print(value);
+            terminal_print("\n");
+        } else {
+            terminal_print("settings: key not found: ");
+            terminal_print(cmd + 13);
+            terminal_print("\n");
+        }
+    } else if (strncmp(cmd, "settings set ", 13) == 0) {
+        const char *p = cmd + 13;
+        char key[64];
+        uint32_t k = 0;
+        while (*p && *p != ' ' && k < sizeof(key) - 1)
+            key[k++] = *p++;
+        key[k] = '\0';
+        while (*p == ' ') p++;
+        if (k > 0 && settings_set(key, p) == 0) {
+            terminal_print("settings: ");
+            terminal_print(key);
+            terminal_print("=");
+            terminal_print(p);
+            terminal_print(" saved\n");
+        } else {
+            terminal_print("settings: invalid key/value\n");
+        }
+    } else if (strcmp(cmd, "upgrade") == 0) {
+        upgrade_status();
+    } else if (strcmp(cmd, "upgrade apply") == 0) {
+        static uint8_t pk[8192];
+        char next[16];
+        upgrade_next_version(next, sizeof(next));
+        int n = upgrade_build_demo(pk, sizeof(pk), next);
+        if (n > 0)
+            upgrade_apply(pk, (uint32_t)n);
+        else
+            terminal_print("upgrade: cannot build package\n");
+    } else if (strcmp(cmd, "upgrade rollback") == 0) {
+        upgrade_rollback();
     } else if (strncmp(cmd, "echo ", 5) == 0) {
         terminal_print(cmd + 5);
         terminal_print("\n");
@@ -310,6 +379,30 @@ void kernel_main(struct multiboot_info *mbi)
     terminal_print("  Unmasking IRQ0, IRQ1... ");
     outb(0x21, 0xFC);  /* Master: unmask IRQ0 (timer) and IRQ1 (keyboard) */
     outb(0xA1, 0xFF);  /* Slave: mask all */
+    terminal_print("OK\n\n");
+
+    /* Step 11: Initialize kernel heap */
+    terminal_print("  Heap... ");
+    heap_init();
+    terminal_print("OK\n");
+
+    /* Step 12: Initialize the file system (RAM disk) */
+    terminal_print("  Filesystem... ");
+    fs_init();
+    terminal_print("OK\n");
+
+    /* Step 13: Load system version and settings */
+    terminal_print("  System version... ");
+    upgrade_init();
+    terminal_print("OK\n");
+
+    terminal_print("  Settings... ");
+    settings_init();
+    terminal_print("OK\n");
+
+    /* Step 14: Install default .BAS system package (.BAK apps) */
+    terminal_print("  Installing system package... ");
+    pkg_ensure_defaults();
     terminal_print("OK\n\n");
 
     /* Main loop */

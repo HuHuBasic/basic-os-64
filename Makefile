@@ -7,7 +7,7 @@ CFLAGS  = -m64 -mno-red-zone -mno-mmx -mno-sse -mno-sse2 \
           -ffreestanding -O2 -Wall -Wextra \
           -nostdlib -nostdinc -fno-builtin -fno-stack-protector \
           -fno-pic -fno-pie \
-          -I./src -mcmodel=kernel
+          -I./src -mcmodel=kernel $(EXTRA_CFLAGS)
 
 AS      = as
 ASFLAGS = --64
@@ -27,7 +27,13 @@ C_SRCS   = src/kernel.c \
            src/timer.c \
            src/string.c \
            src/ports.c \
-           src/bootscreen.c
+           src/bootscreen.c \
+           src/heap.c \
+           src/fs.c \
+           src/app.c \
+           src/pkg.c \
+           src/settings.c \
+           src/upgrade.c
 
 ASM_OBJS = $(ASM_SRCS:.s=.o)
 C_OBJS   = $(C_SRCS:.c=.o)
