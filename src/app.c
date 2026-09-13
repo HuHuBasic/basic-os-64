@@ -29,6 +29,9 @@ static void app_sysinfo(void)
     terminal_print_dec(heap_total());
     terminal_print(" bytes\n");
     terminal_print("disk   : ");
+    terminal_print(fs_is_persistent() ? "ATA (persistent)" : "RAM (volatile)");
+    terminal_print("\n");
+    terminal_print("usage  : ");
     terminal_print_dec(fs_used_bytes());
     terminal_print(" / ");
     terminal_print_dec(fs_total_bytes());

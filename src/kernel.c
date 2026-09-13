@@ -386,10 +386,10 @@ void kernel_main(struct multiboot_info *mbi)
     heap_init();
     terminal_print("OK\n");
 
-    /* Step 12: Initialize the file system (RAM disk) */
+    /* Step 12: Initialize the file system (ATA disk or RAM disk) */
     terminal_print("  Filesystem... ");
     fs_init();
-    terminal_print("OK\n");
+    terminal_print(fs_is_persistent() ? "OK (ATA hard disk)\n" : "OK (RAM disk)\n");
 
     /* Step 13: Load system version and settings */
     terminal_print("  System version... ");

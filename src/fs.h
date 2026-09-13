@@ -39,6 +39,7 @@ typedef struct {
 
 void        fs_init(void);
 int         fs_format(void);
+int         fs_is_persistent(void);   /* 1=真实磁盘后端, 0=仅内存 */
 
 int         fs_create(const char *name, uint8_t type, const void *data, uint32_t size);
 int         fs_write(const char *name, const void *data, uint32_t size);

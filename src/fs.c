@@ -2,6 +2,7 @@
  * fs.c - RAM 磁盘块设备 + 极简文件系统实现
  */
 #include "fs.h"
+#include "ata.h"
 #include "string.h"
 #include "vga.h"
 
@@ -24,13 +25,29 @@ static uint8_t  block_used[FS_TOTAL_BLOCKS];
 static fs_entry_t entries[FS_MAX_FILES];
 static fs_super_t super;
 static int      fs_ready = 0;
+static int      disk_backed = 0;
 
 /* ---------------- 底层块读写 ---------------- */
+
+/* 将整个内存镜像写到真实磁盘（仅在需要时用于同步元数据） */
+static void rd_flush_sectors(uint32_t first, uint32_t last)
+{
+    if (!disk_backed) return;
+    for (uint32_t s = first; s <= last && s < FS_TOTAL_BLOCKS; s++)
+        ata_write_sector(s, ramdisk + s * FS_BLOCK_SIZE);
+}
 
 static void rd_write(uint32_t off, const void *src, uint32_t len)
 {
     if (off + len > sizeof(ramdisk)) return;
     memcpy(ramdisk + off, src, len);
+
+    /* 写穿透：把受影响扇区写回磁盘，保证掉电后仍可恢复 */
+    if (disk_backed && len > 0) {
+        uint32_t first = off / FS_BLOCK_SIZE;
+        uint32_t last  = (off + len - 1) / FS_BLOCK_SIZE;
+        rd_flush_sectors(first, last);
+    }
 }
 
 static void rd_read(uint32_t off, void *dst, uint32_t len)
@@ -103,6 +120,13 @@ static void free_blocks(uint32_t start, uint32_t count)
 
 void fs_init(void)
 {
+    /* 探测真实磁盘；存在则把整个文件系统镜像读入内存缓存 */
+    disk_backed = ata_init();
+    if (disk_backed) {
+        for (uint32_t s = 0; s < FS_TOTAL_BLOCKS; s++)
+            ata_read_sector(s, ramdisk + s * FS_BLOCK_SIZE);
+    }
+
     fs_super_t tmp;
     rd_read(0, &tmp, sizeof(tmp));
 
@@ -115,6 +139,11 @@ void fs_init(void)
     read_entries();
     rebuild_bitmap();
     fs_ready = 1;
+}
+
+int fs_is_persistent(void)
+{
+    return disk_backed;
 }
 
 int fs_format(void)

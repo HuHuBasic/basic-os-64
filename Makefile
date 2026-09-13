@@ -28,6 +28,7 @@ C_SRCS   = src/kernel.c \
            src/string.c \
            src/ports.c \
            src/bootscreen.c \
+           src/ata.c \
            src/heap.c \
            src/fs.c \
            src/app.c \
@@ -42,6 +43,7 @@ OBJS     = $(ASM_OBJS) $(C_OBJS)
 TARGET   = kernel.bin
 ISO      = basic-os-64.iso
 ISO_DIR  = iso
+DISK     = disk.img
 
 .PHONY: all clean iso run run-qemu
 
@@ -71,9 +73,13 @@ iso: $(TARGET)
 		grub2-mkrescue -o $(ISO) $(ISO_DIR) 2>/dev/null || \
 		(echo "ERROR: Could not create ISO. Install grub-mkrescue or xorriso." && false)
 
-# Run with QEMU
-run: iso
-	qemu-system-x86_64 -cdrom $(ISO) -m 128M -no-reboot -no-shutdown
+# Create a blank 1MB raw disk image for persistent storage (kept across clean)
+$(DISK):
+	dd if=/dev/zero of=$(DISK) bs=1M count=1 2>/dev/null
+
+# Run with QEMU (boot from ISO, attach persistent ATA disk)
+run: iso $(DISK)
+	qemu-system-x86_64 -boot order=d -cdrom $(ISO) -drive file=$(DISK),format=raw,if=ide,index=0 -m 128M -no-reboot -no-shutdown
 
 # Clean
 clean:
